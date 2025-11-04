@@ -1,0 +1,293 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Slurm 多节点 AMD GPU 下的 SGLang 部署细节</title>
+    <meta name="description" content="在异构 HPC 集群中，如何用 Slurm 在多节点且 GPU 未完全占满的情况下稳定部署 SGLang（ROCm/AMD）。" />
+    <link rel="icon" href="../assets/favicon.svg" />
+    <link rel="alternate" hreflang="zh-CN" href="/posts/sglang-slurm-amd.html" />
+    <link rel="alternate" hreflang="en" href="/en/posts/sglang-slurm-amd.html" />
+    <link rel="stylesheet" href="../assets/style.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <nav class="nav">
+        <div class="brand"><a href="../index.html" style="text-decoration:none;color:inherit">个人技术博客</a></div>
+        <div class="nav-actions">
+          <a class="btn" href="/en/posts/sglang-slurm-amd.html" aria-label="English">English</a>
+          <button id="themeToggle" aria-label="切换主题">🌗</button>
+        </div>
+      </nav>
+    </header>
+
+    <main class="container">
+      <article>
+        <header class="post-header">
+          <h1>Slurm 系统下多节点、非全满 GPU 的 AMD GPU SGLang 部署细节</h1>
+          <p class="desc">面向 ROCm/AMD 的实际落地：资源分配、环境变量、通信与常见坑</p>
+        </header>
+        <div class="tip">本文聚焦部署思路与可复用脚本模板。不同集群的模块名称、队列参数与网卡设备可能有差异，请根据实际环境调整。</div>
+
+        <section class="post-content">
+          <h2>本文聚焦的实际工作与贡献</h2>
+          <ul>
+            <li>针对 <strong>每节点非全满 GPU</strong> 的场景（例如两台 8 卡节点，每节点仅用 4 卡），提出并实现了按 <strong>GPU-node</strong> 维度精确设置 <code>HIP_VISIBLE_DEVICES</code> 的方案。</li>
+            <li>在 SGLang 内部按照 <strong>Slurm GPU ID</strong> 进行设备分配，确保跨节点与跨 NUMA 的拓扑一致性。</li>
+            <li>修复并明确了 <strong>server 配置</strong>（<code>MASTER_ADDR/PORT</code>、<code>nccl-init-addr</code>、缓存目录隔离等），避免多节点下的初始化/缓存冲突。</li>
+            <li>在 <strong>MI210</strong> 节点（每节点 8 卡，构成两个 NUMA node）上设计并执行 <strong>decode throughput</strong> 的对比实验，衡量同 NUMA 与跨 NUMA 的性能差异。</li>
+          </ul>
+
+          <h2>背景与目标</h2>
+          <p>在 HPC 集群里，<code>Slurm</code> 是最常见的资源调度器，<code>AMD GPU</code> 使用 <code>ROCm</code> 与 <code>RCCL</code>（PyTorch 层面仍通过 NCCL 接口）完成加速与通信。本文整理如何在<strong>多节点</strong>且<strong>每节点并非占满全部 GPU</strong>的场景下，稳定部署 <code>SGLang</code> 推理服务。</p>
+
+          <h2>节点与拓扑（MI210）</h2>
+          <ul>
+            <li>节点：每节点 8 张 MI210，划分为 <strong>两个 NUMA node</strong>。</li>
+            <li>互连：MI210 最多支持 3 个 Infinity Fabric 插槽；<strong>同 NUMA</strong> 与 <strong>跨 NUMA</strong> 的连接带宽差异显著。</li>
+            <li>实验重点：比较同 NUMA vs 跨 NUMA 的 <strong>decode throughput</strong> 表现。</li>
+          </ul>
+
+          <h2>前置环境</h2>
+          <ul>
+            <li>操作系统/内核：按集群默认（常见为 RHEL/CentOS/Ubuntu LTS）。</li>
+            <li>驱动/库：<code>ROCm</code> 对应版本，<code>PyTorch</code> 的 ROCm 构建（pip/conda 安装对应 rocm 版本）。</li>
+            <li>通信：<code>RCCL</code>（以 NCCL 环境变量配置）、IB 或 RoCE 网卡（例如 <code>ib0</code>）。</li>
+            <li>调度：Slurm 配置了 <code>GresTypes=gpu</code>，节点标注了 GPU 型号（如 <code>mi250</code>）。</li>
+          </ul>
+
+          <h2>非全满 GPU 分配的关键点</h2>
+          <p>当每节点只使用部分 GPU（例如 3/8），务必确保：</p>
+          <ul>
+            <li>使用 <code>--gres=gpu:&lt;type&gt;:&lt;count&gt;</code> 精确申请数量，并避免与其他作业冲突。</li>
+            <li>正确限制进程可见设备：<code>HIP_VISIBLE_DEVICES</code> 与（若集群自动设置）<code>CUDA_VISIBLE_DEVICES</code> 的一致性。</li>
+            <li>跨节点通信仅在分配到的进程间进行，<code>WORLD_SIZE</code>/<code>RANK</code> 和 <code>MASTER_ADDR</code>/<code>MASTER_PORT</code> 正确配置。</li>
+          </ul>
+
+          <h3>按 GPU-node 设置 HIP_VISIBLE_DEVICES</h3>
+          <p>在两台 8 卡节点、每节点仅用 4 卡的布局中，建议每节点 1 个进程，并在该进程内设置对应的 <code>HIP_VISIBLE_DEVICES</code>：</p>
+          <pre><code class="language-bash"># 依据 Slurm 暴露的变量优先确定可见设备
+if [[ -n "${SLURM_JOB_GPUS}" ]]; then
+  export HIP_VISIBLE_DEVICES=${SLURM_JOB_GPUS}
+elif [[ -n "${CUDA_VISIBLE_DEVICES}" ]]; then
+  # 某些集群即便是 AMD GPU 也会设置 CUDA_VISIBLE_DEVICES
+  export HIP_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES}
+else
+  # 回退：若每节点使用 4 卡且按 0..3 编号（示例），可手动指定
+  export HIP_VISIBLE_DEVICES=0,1,2,3
+fi
+echo "[INFO] HIP_VISIBLE_DEVICES=${HIP_VISIBLE_DEVICES}"
+</code></pre>
+          <p>如果需要更细粒度控制（例如按 NUMA 划分），可在作业提交前为不同节点提前规划索引映射，并在 <code>node_rank</code> 维度上分别设置。</p>
+
+          <h3>常用 Slurm 环境变量</h3>
+          <ul>
+            <li><code>SLURM_NODELIST</code>：当前作业的节点列表。</li>
+            <li><code>SLURM_NNODES</code>：节点数量。</li>
+            <li><code>SLURM_PROCID</code> / <code>SLURM_NODEID</code>：当前任务在作业内的全局/节点内序号。</li>
+            <li><code>SLURM_JOB_GPUS</code>：当前节点分配到本作业的 GPU 索引（需要 Slurm 版本支持）。</li>
+          </ul>
+
+          <h2>推荐环境变量配置（ROCm/AMD）</h2>
+          <pre><code class="language-bash"># 仅暴露分配到的 GPU（Slurm 提供的索引）
+export HIP_VISIBLE_DEVICES=${SLURM_JOB_GPUS}
+
+# 通信相关（RCCL 通过 NCCL 环境变量）
+export NCCL_DEBUG=INFO
+export NCCL_SOCKET_IFNAME=ib0       # 视集群网卡名调整
+export NCCL_IB_DISABLE=0
+export NCCL_P2P_DISABLE=0
+export RDMAV_FORK_SAFE=1
+
+# 某些环境下可提升 ROCm 稳定性/性能
+export HSA_FORCE_FINE_GRAIN_PCIE=1
+export HSA_ENABLE_SDMA=1
+</code></pre>
+
+          <h2>多节点通信参数</h2>
+          <pre><code class="language-bash">MASTER_ADDR=$(scontrol show hostnames $SLURM_NODELIST | head -n 1)
+MASTER_PORT=30000                    # 选择空闲端口
+WORLD_SIZE=${SLURM_NNODES}
+RANK=${SLURM_PROCID}                 # 若每节点 1 个 task，RANK=节点序号
+
+export MASTER_ADDR MASTER_PORT WORLD_SIZE RANK
+</code></pre>
+
+          <h2>SGLang 部署思路与服务配置</h2>
+          <p>在 SGLang 的多卡/多节点部署中，常见做法是：每节点运行一个进程，按需设置 <code>tensor parallel (TP)</code> / <code>pipeline parallel (PP)</code> / <code>data parallel (DP)</code>，并通过分布式后端完成跨节点通信。针对 AMD/ROCm，后端通常为 PyTorch 的 <code>NCCL</code>（内部衔接 RCCL）。</p>
+          <ul>
+            <li>明确 <code>MASTER_ADDR</code> / <code>MASTER_PORT</code>（或 <code>nccl-init-addr</code>），建议使用首节点 hostname 与固定端口。</li>
+            <li>为不同节点设置 <code>OUTLINES_CACHE_DIR</code> 等缓存路径，避免多节点下 sqlite 冲突。</li>
+          </ul>
+
+          <div class="tip">不同版本的 SGLang CLI 参数可能略有差异。下面示例展示参数组织方式与环境变量传递，请根据实际版本确认具体 flag 名称。</div>
+
+          <h3>示例一：直接使用 SGLang 的服务器入口</h3>
+          <pre><code class="language-bash">python -m sglang.launch_server \
+  --model /path/to/model \
+  --host 0.0.0.0 \
+  --port ${MASTER_PORT} \
+  --tensor-parallel-size 3 \        # 每节点使用 3 张 GPU（示例）
+  --pipeline-parallel-size 1 \
+  --distributed-backend nccl \      # AMD/ROCm 场景通常仍设置为 nccl
+  --log-level info
+</code></pre>
+
+          <h3>示例二：使用 torchrun 包装（便于传递 RANK 等）</h3>
+          <pre><code class="language-bash">torchrun --nproc_per_node=1 --nnodes=${WORLD_SIZE} --node_rank=${RANK} \
+  --master_addr=${MASTER_ADDR} --master_port=${MASTER_PORT} \
+  -m sglang.launch_server \
+  --model /path/to/model \
+  --host 0.0.0.0 --port ${MASTER_PORT} \
+  --tensor-parallel-size 3 --pipeline-parallel-size 1 --distributed-backend nccl
+</code></pre>
+
+          <h2>完整 sbatch 模板（非全满 GPU，多节点）</h2>
+          <pre><code class="language-bash">#!/bin/bash
+#SBATCH -J sglang-amd
+#SBATCH -p compute                 # 队列名视集群而定
+#SBATCH -N 2                       # 2 个节点（每节点 8 卡，仅使用 4 卡）
+#SBATCH --ntasks-per-node=1        # 每节点一个进程
+#SBATCH --gres=gpu:mi210:4         # 每节点申请 4 张 AMD MI210
+#SBATCH --cpus-per-task=16
+#SBATCH -t 02:00:00
+#SBATCH --exclusive
+
+module purge
+module load rocm                   # 或具体版本: rocm/5.7
+module load python/3.10            # 若使用集群模块管理
+
+# Python 环境（conda/pip）按需激活
+# source ~/miniconda3/bin/activate sglang-rocm
+
+MASTER_ADDR=$(scontrol show hostnames $SLURM_NODELIST | head -n 1)
+MASTER_PORT=30000
+WORLD_SIZE=${SLURM_NNODES}
+RANK=${SLURM_PROCID}
+
+export MASTER_ADDR MASTER_PORT WORLD_SIZE RANK
+# 设置每节点可见设备（优先用 Slurm 提供，其次 CUDA_VISIBLE_DEVICES，最后手工）
+if [[ -n "${SLURM_JOB_GPUS}" ]]; then
+  export HIP_VISIBLE_DEVICES=${SLURM_JOB_GPUS}
+elif [[ -n "${CUDA_VISIBLE_DEVICES}" ]]; then
+  export HIP_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES}
+else
+  export HIP_VISIBLE_DEVICES=0,1,2,3
+fi
+export NCCL_DEBUG=INFO
+export NCCL_SOCKET_IFNAME=ib0
+export NCCL_IB_DISABLE=0
+export NCCL_P2P_DISABLE=0
+export RDMAV_FORK_SAFE=1
+export HSA_FORCE_FINE_GRAIN_PCIE=1
+
+echo "[INFO] Nodes: ${WORLD_SIZE}, Rank: ${RANK}, Master: ${MASTER_ADDR}:${MASTER_PORT}"
+echo "[INFO] HIP_VISIBLE_DEVICES=${HIP_VISIBLE_DEVICES}"
+
+# 方式一：直接启动 SGLang Server
+python -m sglang.launch_server \
+  --model /path/to/model \
+  --host 0.0.0.0 \
+  --port ${MASTER_PORT} \
+  --tensor-parallel-size 4 \        # 每节点 4 卡
+  --pipeline-parallel-size 1 \
+  --distributed-backend nccl \
+  --log-level info
+
+# 方式二：如需 torchrun（取消上面并启用下面）
+# torchrun --nproc_per_node=1 --nnodes=${WORLD_SIZE} --node_rank=${RANK} \
+#   --master_addr=${MASTER_ADDR} --master_port=${MASTER_PORT} \
+#   -m sglang.launch_server \
+#   --model /path/to/model \
+#   --host 0.0.0.0 --port ${MASTER_PORT} \
+#   --tensor-parallel-size 3 --pipeline-parallel-size 1 --distributed-backend nccl
+</code></pre>
+
+          <h2>实战脚本：多节点完整 sbatch（已注释，含路由器/多 worker）</h2>
+          <p>下列片段摘自完整的 <code>multinode.sbatch</code>（已在仓库根目录提供下载），采用“<strong>每节点独立 SGLang worker（本地 TP） + sglang_router 跨节点做 DP</strong>”的架构，适合每节点 <strong>非全满 GPU</strong> 的 MI210 环境，并便于做同/跨 NUMA 的吞吐对比。</p>
+          <p><a href="/multinode.sbatch" download>下载完整 sbatch（multinode.sbatch）</a></p>
+
+          <h3>作业头与资源申请（示例）</h3>
+          <pre><code class="language-bash">#!/usr/bin/env bash
+#SBATCH -p faculty
+#SBATCH --qos=gtqos
+#SBATCH --nodes 2
+#SBATCH --ntasks=2
+#SBATCH --gpus-per-node=4
+#SBATCH --cpus-per-task=64
+#SBATCH --mem=256G
+#SBATCH -t 12:00:00
+#SBATCH -J qwen30b_tp4_dp2
+# 注意：以上参数需按你的集群队列/CPU/内存情况调整。</code></pre>
+
+          <h3>精确设置每节点可见 GPU</h3>
+          <pre><code class="language-bash">set_local_gpus() {
+  if [[ -n "${SLURM_STEP_GPUS:-}" ]]; then
+    HIP_VISIBLE_DEVICES="${SLURM_STEP_GPUS}"
+  elif [[ -n "${SLURM_JOB_GPUS:-}" ]]; then
+    HIP_VISIBLE_DEVICES="${SLURM_JOB_GPUS}"
+  else
+    HIP_VISIBLE_DEVICES="${HIP_DEVICES_DEFAULT:-0,1,2,3}"
+  fi
+  export HIP_VISIBLE_DEVICES
+  export ROCR_VISIBLE_DEVICES="$HIP_VISIBLE_DEVICES"
+  export HSA_VISIBLE_DEVICES="$HIP_VISIBLE_DEVICES"
+  export CUDA_VISIBLE_DEVICES="$HIP_VISIBLE_DEVICES"
+}
+          </code></pre>
+
+          <h3>启动每节点 worker（本地 TP）并隔离缓存</h3>
+          <pre><code class="language-bash">srun --nodes=1 --nodelist="$node" --gres="gpu:${WORKER_GPUS_PER_NODE}" \
+     --ntasks=1 --cpus-per-task="$SLURM_CPUS_PER_TASK" \
+     bash -lc "$(declare -f set_local_gpus); set_local_gpus; \
+       export OUTLINES_CACHE_DIR=\"/tmp/\$(hostname -s)_cache_${SLURM_JOB_ID}\"; \
+       python3 -m sglang.launch_server \
+         --tp-size $TP_SIZE --pp-size $PP_SIZE \
+         --model-path $MODEL_PATH --host 0.0.0.0 --port $port \
+         --disable-radix-cache --enable-dp-attention \
+         --device cuda" &
+          </code></pre>
+
+          <h3>路由器（跨节点 DP）与健康检查</h3>
+          <pre><code class="language-bash">python3 -m sglang_router.launch_router \
+  --worker-urls "${WORKER_URLS[@]}" --host 0.0.0.0 --port "$ROUTER_PORT" \
+  --policy "$ROUTER_POLICY" &
+
+# 等待端口就绪
+until nc -z localhost "$ROUTER_PORT"; do sleep 0.5; done
+curl -s "http://localhost:${ROUTER_PORT}/healthy" | jq .
+          </code></pre>
+
+          <div class="tip">对照参考文章：参考做法是用两个 <code>srun</code> 直接构成单一 server 的多节点实例（<code>--tp</code>/<code>--nnodes</code>/<code>--node-rank</code>/<code>--nccl-init-addr</code>）。本脚本改为“路由器 + 多 worker”模式，在每节点 GPU 非全满时更易于资源隔离与稳定运行。</div>
+
+          <h2>常见坑与排查</h2>
+          <ul>
+            <li><strong>端口冲突</strong>：<code>MASTER_PORT</code> 被占用时，进程可能在不同节点卡住。换一个未占用端口。</li>
+            <li><strong>网卡选择错误</strong>：<code>NCCL_SOCKET_IFNAME</code> 填错会导致带宽过低或连接失败。确认 IB 网卡名（如 <code>ib0</code>）。</li>
+            <li><strong>GPU 可见性不一致</strong>：确保 <code>HIP_VISIBLE_DEVICES</code> 与 Slurm 的分配一致，避免越界访问。</li>
+            <li><strong>PyTorch 与 ROCm 版本不匹配</strong>：升级或降级到兼容组合。</li>
+            <li><strong>节点混用导致性能抖动</strong>：尽量选择同型号、同拓扑的节点。</li>
+          </ul>
+
+          <h2>小结</h2>
+          <p>核心在于：Slurm 精准分配（非全满）、ROCm/RCCL 环境变量正确、<code>MASTER/RANK/WORLD_SIZE</code> 配置无误，并根据 SGLang 版本选择合适的入口与并行策略。按本文模板做变量替换，基本能在大多数 AMD 集群上稳定跑通。</p>
+
+          <h2>参考</h2>
+          <ul>
+            <li>Multi-Node LLM Inference with SGLang on SLURM-Enabled Clusters [0]：<a href="https://aflah02.substack.com/p/multi-node-llm-inference-with-sglang" target="_blank" rel="noopener">链接</a></li>
+          </ul>
+        </section>
+      </article>
+    </main>
+
+    <footer class="site-footer">
+      <div class="footer-inner">
+        <span>© 2025 个人技术博客</span>
+        <span>·</span>
+        <a href="https://github.com/dereksodo/dereksodo.github.io" target="_blank" rel="noopener">GitHub</a>
+      </div>
+    </footer>
+
+    <script src="../assets/script.js"></script>
+  </body>
+</html>

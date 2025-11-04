@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en-US">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Tech Blog | Cover</title>
+    <meta name="description" content="Hands-on notes from HPC scheduling to LLM deployment." />
+    <link rel="icon" href="../assets/favicon.svg" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet" />
+    <link rel="alternate" hreflang="zh-CN" href="../index.html" />
+    <link rel="alternate" hreflang="en" href="./index.html" />
+    <link rel="stylesheet" href="../assets/style.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <nav class="nav">
+        <div class="brand">Tech Blog</div>
+        <div class="nav-actions">
+          <a class="btn" href="../index.html" aria-label="中文">中文</a>
+          <button id="themeToggle" aria-label="Toggle Theme">🌗</button>
+        </div>
+      </nav>
+    </header>
+
+    <main>
+      <section class="hero">
+        <div class="hero-bg" aria-hidden="true"></div>
+        <div class="hero-content">
+          <h1>Explain complex tech with clarity</h1>
+          <p class="subtitle">From HPC scheduling to practical LLM deployment</p>
+          <div class="cta">
+            <a class="btn primary" href="posts/sglang-slurm-amd.html">First post: SGLang on Slurm (AMD GPUs, non-full utilization) →</a>
+            <a class="btn ghost" href="#posts">Browse posts</a>
+          </div>
+          <div class="meta">
+            <span>Minimal · Efficient · Reusable</span>
+          </div>
+        </div>
+      </section>
+
+      <section id="posts" class="post-list">
+        <h2>Latest</h2>
+        <article class="post-card">
+          <a href="posts/sglang-slurm-amd.html" class="post-link">
+            <div class="post-title">Details of deploying SGLang on Slurm with AMD GPUs across multiple nodes (non-full GPU usage)</div>
+            <div class="post-excerpt">How to stably deploy SGLang (ROCm/AMD) when GPUs are partially allocated across nodes in heterogeneous HPC clusters.</div>
+            <div class="post-meta">Practice · Guide · Reusable scripts</div>
+          </a>
+        </article>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <div class="footer-inner">
+        <span>© 2025 Tech Blog</span>
+        <span>·</span>
+        <a href="https://github.com/dereksodo/dereksodo.github.io" target="_blank" rel="noopener">GitHub</a>
+      </div>
+    </footer>
+
+    <script src="../assets/script.js"></script>
+  </body>
+</html>

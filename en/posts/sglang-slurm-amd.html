@@ -1,0 +1,272 @@
+<!doctype html>
+<html lang="en-US">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>SGLang on Slurm with AMD GPUs: multi-node, partial GPU usage</title>
+    <meta name="description" content="Deploy SGLang (ROCm/AMD) across multiple nodes on Slurm when GPUs are not fully utilized per node." />
+    <link rel="icon" href="../../assets/favicon.svg" />
+    <link rel="alternate" hreflang="zh-CN" href="../../posts/sglang-slurm-amd.html" />
+    <link rel="alternate" hreflang="en" href="./sglang-slurm-amd.html" />
+    <link rel="stylesheet" href="../../assets/style.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <nav class="nav">
+        <div class="brand"><a href="../index.html" style="text-decoration:none;color:inherit">Tech Blog</a></div>
+        <div class="nav-actions">
+          <a class="btn" href="../../posts/sglang-slurm-amd.html" aria-label="中文">中文</a>
+          <button id="themeToggle" aria-label="Toggle Theme">🌗</button>
+        </div>
+      </nav>
+    </header>
+
+    <main class="container">
+      <article>
+        <header class="post-header">
+          <h1>Deploying SGLang on Slurm with AMD GPUs across multiple nodes (partial GPU usage)</h1>
+          <p class="desc">ROCm/AMD practical rollout: resource allocation, environment variables, communication, and pitfalls</p>
+        </header>
+        <div class="tip">This article focuses on deployment concepts and reusable script templates. Module names, partition settings, and NIC devices vary across clusters—adjust accordingly.</div>
+
+        <section class="post-content">
+          <h2>What this work focuses on</h2>
+          <ul>
+            <li><strong>Partial GPUs per node</strong> (e.g., two 8-GPU nodes, 4 GPUs used on each): a per <strong>GPU-node</strong> strategy to set <code>HIP_VISIBLE_DEVICES</code> precisely.</li>
+            <li>Device allocation in SGLang aligned with <strong>Slurm GPU IDs</strong>, preserving topology across nodes and NUMA domains.</li>
+            <li><strong>Server config</strong> clarified/fixed: <code>MASTER_ADDR/PORT</code>, <code>nccl-init-addr</code>, and per-node cache path isolation.</li>
+            <li><strong>Decode throughput experiments</strong> on <strong>MI210</strong> nodes (8 GPUs per node, two NUMA nodes), measuring same-NUMA vs cross-NUMA performance.</li>
+          </ul>
+
+        <section class="post-content">
+          <h2>Background & Goal</h2>
+          <p>In HPC clusters, <code>Slurm</code> is a common scheduler. <code>AMD GPUs</code> rely on <code>ROCm</code> and <code>RCCL</code> (PyTorch still uses the NCCL interface) for acceleration and communication. This guide explains how to reliably deploy <code>SGLang</code> inference services in a <strong>multi-node</strong> setup where <strong>each node uses only part of its GPUs</strong>.</p>
+
+          <h2>Nodes & topology (MI210)</h2>
+          <ul>
+            <li>Each node hosts 8 MI210 GPUs, forming <strong>two NUMA nodes</strong>.</li>
+            <li>MI210 supports up to 3 Infinity Fabric slots; bandwidth differs significantly between <strong>same-NUMA</strong> and <strong>cross-NUMA</strong> connections.</li>
+            <li>Experiments compare decode throughput for same-NUMA vs cross-NUMA placements.</li>
+          </ul>
+
+          <h2>Prerequisites</h2>
+          <ul>
+            <li>OS/kernel: cluster defaults (e.g., RHEL/CentOS/Ubuntu LTS).</li>
+            <li>Drivers/libs: matching <code>ROCm</code> version; <code>PyTorch</code> built for ROCm (pip/conda with rocm wheel).</li>
+            <li>Communication: <code>RCCL</code> (via NCCL envs), IB or RoCE NIC (e.g., <code>ib0</code>).</li>
+            <li>Scheduling: Slurm configured with <code>GresTypes=gpu</code>, nodes labeled with GPU types (e.g., <code>mi250</code>).</li>
+          </ul>
+
+          <h2>Key points for partial GPU allocation</h2>
+          <p>When using a subset of GPUs per node (e.g., 3/8), ensure:</p>
+          <ul>
+            <li>Request exact GPUs via <code>--gres=gpu:&lt;type&gt;:&lt;count&gt;</code> to avoid conflicts.</li>
+            <li>Limit visible devices properly: align <code>HIP_VISIBLE_DEVICES</code> (and possibly <code>CUDA_VISIBLE_DEVICES</code>) with Slurm allocation.</li>
+            <li>Cross-node communication only happens among allocated processes; set <code>WORLD_SIZE</code>/<code>RANK</code>, <code>MASTER_ADDR</code>/<code>MASTER_PORT</code> correctly.</li>
+          </ul>
+
+          <h3>Useful Slurm environment variables</h3>
+          <ul>
+            <li><code>SLURM_NODELIST</code>: node list of the job.</li>
+            <li><code>SLURM_NNODES</code>: number of nodes.</li>
+            <li><code>SLURM_PROCID</code> / <code>SLURM_NODEID</code>: global/node-local task indices.</li>
+            <li><code>SLURM_JOB_GPUS</code>: GPUs allocated to this job on the current node (depends on Slurm version).</li>
+          </ul>
+
+          <h2>Recommended environment variables (ROCm/AMD)</h2>
+          <pre><code class="language-bash"># Expose only allocated GPUs (indices provided by Slurm)
+export HIP_VISIBLE_DEVICES=${SLURM_JOB_GPUS}
+
+# Communication (RCCL via NCCL envs)
+export NCCL_DEBUG=INFO
+export NCCL_SOCKET_IFNAME=ib0       # adjust to your NIC
+export NCCL_IB_DISABLE=0
+export NCCL_P2P_DISABLE=0
+export RDMAV_FORK_SAFE=1
+
+# Stability/perf tweaks in some environments
+export HSA_FORCE_FINE_GRAIN_PCIE=1
+export HSA_ENABLE_SDMA=1
+</code></pre>
+
+          <h2>Multi-node communication params</h2>
+          <pre><code class="language-bash">MASTER_ADDR=$(scontrol show hostnames $SLURM_NODELIST | head -n 1)
+MASTER_PORT=30000                    # pick a free port
+WORLD_SIZE=${SLURM_NNODES}
+RANK=${SLURM_PROCID}                 # if 1 task per node, RANK=node index
+
+export MASTER_ADDR MASTER_PORT WORLD_SIZE RANK
+</code></pre>
+
+          <h2>Deployment approach & server configuration for SGLang</h2>
+          <p>Typical setup: one process per node, configure <code>TP</code> / <code>PP</code> / <code>DP</code> as needed, and use PyTorch <code>NCCL</code> backend (bridged to RCCL under ROCm). For AMD/ROCm, use the NCCL backend.</p>
+          <ul>
+            <li>Explicitly set <code>MASTER_ADDR</code> / <code>MASTER_PORT</code> (or <code>nccl-init-addr</code>) using the head node hostname and a fixed port.</li>
+            <li>Isolate caches per node (e.g., <code>OUTLINES_CACHE_DIR</code>) to avoid sqlite conflicts in multi-node jobs.</li>
+          </ul>
+
+          <div class="tip">SGLang CLI flags may vary across versions. The examples below illustrate parameter organization and env passing—confirm exact flag names for your version.</div>
+
+          <h3>Example 1: use SGLang server entry directly</h3>
+          <pre><code class="language-bash">python -m sglang.launch_server \
+  --model /path/to/model \
+  --host 0.0.0.0 \
+  --port ${MASTER_PORT} \
+  --tensor-parallel-size 3 \        # 3 GPUs per node (example)
+  --pipeline-parallel-size 1 \
+  --distributed-backend nccl \      # AMD/ROCm typically still uses nccl
+  --log-level info
+</code></pre>
+
+          <h3>Example 2: wrap with torchrun (convenient for RANK passing)</h3>
+          <pre><code class="language-bash">torchrun --nproc_per_node=1 --nnodes=${WORLD_SIZE} --node_rank=${RANK} \
+  --master_addr=${MASTER_ADDR} --master_port=${MASTER_PORT} \
+  -m sglang.launch_server \
+  --model /path/to/model \
+  --host 0.0.0.0 --port ${MASTER_PORT} \
+  --tensor-parallel-size 3 --pipeline-parallel-size 1 --distributed-backend nccl
+</code></pre>
+
+          <h2>Complete sbatch template (multi-node, partial GPUs)</h2>
+          <pre><code class="language-bash">#!/bin/bash
+#SBATCH -J sglang-amd
+#SBATCH -p compute                 # partition
+#SBATCH -N 2                       # 2 nodes
+#SBATCH --ntasks-per-node=1        # one process per node
+#SBATCH --gres=gpu:mi210:4         # 4 AMD MI210 per node
+#SBATCH --cpus-per-task=16
+#SBATCH -t 02:00:00
+#SBATCH --exclusive
+
+module purge
+module load rocm                   # e.g., rocm/5.7
+module load python/3.10
+
+# Activate Python env if needed
+# source ~/miniconda3/bin/activate sglang-rocm
+
+MASTER_ADDR=$(scontrol show hostnames $SLURM_NODELIST | head -n 1)
+MASTER_PORT=30000
+WORLD_SIZE=${SLURM_NNODES}
+RANK=${SLURM_PROCID}
+
+export MASTER_ADDR MASTER_PORT WORLD_SIZE RANK
+if [[ -n "${SLURM_JOB_GPUS}" ]]; then
+  export HIP_VISIBLE_DEVICES=${SLURM_JOB_GPUS}
+elif [[ -n "${CUDA_VISIBLE_DEVICES}" ]]; then
+  export HIP_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES}
+else
+  export HIP_VISIBLE_DEVICES=0,1,2,3
+fi
+export NCCL_DEBUG=INFO
+export NCCL_SOCKET_IFNAME=ib0
+export NCCL_IB_DISABLE=0
+export NCCL_P2P_DISABLE=0
+export RDMAV_FORK_SAFE=1
+export HSA_FORCE_FINE_GRAIN_PCIE=1
+
+echo "[INFO] Nodes: ${WORLD_SIZE}, Rank: ${RANK}, Master: ${MASTER_ADDR}:${MASTER_PORT}"
+echo "[INFO] HIP_VISIBLE_DEVICES=${HIP_VISIBLE_DEVICES}"
+
+# Option 1: launch SGLang server directly
+python -m sglang.launch_server \
+  --model /path/to/model \
+  --host 0.0.0.0 \
+  --port ${MASTER_PORT} \
+  --tensor-parallel-size 4 \
+  --pipeline-parallel-size 1 \
+  --distributed-backend nccl \
+  --log-level info
+
+# Option 2: torchrun (comment out above and enable below)
+# torchrun --nproc_per_node=1 --nnodes=${WORLD_SIZE} --node_rank=${RANK} \
+#   --master_addr=${MASTER_ADDR} --master_port=${MASTER_PORT} \
+#   -m sglang.launch_server \
+#   --model /path/to/model \
+#   --host 0.0.0.0 --port ${MASTER_PORT} \
+#   --tensor-parallel-size 3 --pipeline-parallel-size 1 --distributed-backend nccl
+</code></pre>
+
+          <h2>Practical script: complete multi-node sbatch (annotated, router + multi-worker)</h2>
+          <p>The snippets below are taken from the full <code>multinode.sbatch</code> (available at the site root for download). It adopts <strong>one SGLang worker per node (local TP) + sglang_router handling cross-node DP</strong>, which is suitable for <strong>partial GPUs per node</strong> on MI210 and convenient for same- vs cross-NUMA throughput comparisons.</p>
+          <p><a href="/multinode_en.sbatch" download>Download the full sbatch (English, multinode_en.sbatch)</a></p>
+
+          <h3>Job header and resource request (example)</h3>
+          <pre><code class="language-bash">#!/usr/bin/env bash
+#SBATCH -p faculty
+#SBATCH --qos=gtqos
+#SBATCH --nodes 2
+#SBATCH --ntasks=2
+#SBATCH --gpus-per-node=4
+#SBATCH --cpus-per-task=64
+#SBATCH --mem=256G
+#SBATCH -t 12:00:00
+#SBATCH -J qwen30b_tp4_dp2
+# Note: tune these per your cluster partitions/CPU/memory.</code></pre>
+
+          <h3>Set per-node visible GPUs precisely</h3>
+          <pre><code class="language-bash">set_local_gpus() {
+  if [[ -n "${SLURM_STEP_GPUS:-}" ]]; then
+    HIP_VISIBLE_DEVICES="${SLURM_STEP_GPUS}"
+  elif [[ -n "${SLURM_JOB_GPUS:-}" ]]; then
+    HIP_VISIBLE_DEVICES="${SLURM_JOB_GPUS}"
+  else
+    HIP_VISIBLE_DEVICES="${HIP_DEVICES_DEFAULT:-0,1,2,3}"
+  fi
+  export HIP_VISIBLE_DEVICES
+  export ROCR_VISIBLE_DEVICES="$HIP_VISIBLE_DEVICES"
+  export HSA_VISIBLE_DEVICES="$HIP_VISIBLE_DEVICES"
+  export CUDA_VISIBLE_DEVICES="$HIP_VISIBLE_DEVICES"
+}
+          </code></pre>
+
+          <h3>Launch per-node worker (local TP) with cache isolation</h3>
+          <pre><code class="language-bash">srun --nodes=1 --nodelist="$node" --gres="gpu:${WORKER_GPUS_PER_NODE}" \
+     --ntasks=1 --cpus-per-task="$SLURM_CPUS_PER_TASK" \
+     bash -lc "$(declare -f set_local_gpus); set_local_gpus; \
+       export OUTLINES_CACHE_DIR=\"/tmp/\$(hostname -s)_cache_${SLURM_JOB_ID}\"; \
+       python3 -m sglang.launch_server \
+         --tp-size $TP_SIZE --pp-size $PP_SIZE \
+         --model-path $MODEL_PATH --host 0.0.0.0 --port $port \
+         --disable-radix-cache --enable-dp-attention \
+         --device cuda" &
+          </code></pre>
+
+          <h3>Router (cross-node DP) and health checks</h3>
+          <pre><code class="language-bash">python3 -m sglang_router.launch_router \
+  --worker-urls "${WORKER_URLS[@]}" --host 0.0.0.0 --port "$ROUTER_PORT" \
+  --policy "$ROUTER_POLICY" &
+
+# Wait for port ready
+until nc -z localhost "$ROUTER_PORT"; do sleep 0.5; done
+curl -s "http://localhost:${ROUTER_PORT}/healthy" | jq .
+          </code></pre>
+
+          <div class="tip">Compared with the reference article: the reference starts a single multi-node server via two <code>srun</code> and parameters like <code>--tp</code>/<code>--nnodes</code>/<code>--node-rank</code>/<code>--nccl-init-addr</code>. Here we use a <em>router + multi-worker</em> pattern, which is more robust for partial GPUs per node and makes resource isolation easier.</div>
+
+          <h2>Common pitfalls</h2>
+          <ul>
+            <li><strong>Port conflicts</strong>: if <code>MASTER_PORT</code> is occupied, processes may hang across nodes—choose a free port.</li>
+            <li><strong>Wrong NIC</strong>: incorrect <code>NCCL_SOCKET_IFNAME</code> yields poor bandwidth or failures—verify IB device (e.g., <code>ib0</code>).</li>
+            <li><strong>GPU visibility mismatch</strong>: ensure <code>HIP_VISIBLE_DEVICES</code> matches Slurm allocation.</li>
+            <li><strong>PyTorch/ROCm mismatch</strong>: adjust versions to a compatible pair.</li>
+            <li><strong>Mixed nodes causing perf jitter</strong>: prefer homogeneous nodes/topology.</li>
+          </ul>
+
+          <h2>Summary</h2>
+          <p>Key ingredients: precise Slurm allocation (partial), correct ROCm/RCCL envs, proper <code>MASTER/RANK/WORLD_SIZE</code>, and suitable parallel strategy for SGLang. With the templates here, you should achieve stable deployment on most AMD clusters.</p>
+        </section>
+      </article>
+    </main>
+
+    <footer class="site-footer">
+      <div class="footer-inner">
+        <span>© 2025 Tech Blog</span>
+        <span>·</span>
+        <a href="https://github.com/dereksodo/dereksodo.github.io" target="_blank" rel="noopener">GitHub</a>
+      </div>
+    </footer>
+
+    <script src="../../assets/script.js"></script>
+  </body>
+</html>

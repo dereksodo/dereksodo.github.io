@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>个人技术博客 | 封面</title>
+    <meta name="description" content="记录工程与研究的技术细节与实践。" />
+    <meta property="og:title" content="个人技术博客" />
+    <meta property="og:description" content="记录工程与研究的技术细节与实践。" />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="/" />
+    <link rel="icon" href="assets/favicon.svg" />
+    <link rel="alternate" hreflang="zh-CN" href="/index.html" />
+    <link rel="alternate" hreflang="en" href="/en/index.html" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="assets/style.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <nav class="nav">
+        <div class="brand">个人技术博客</div>
+        <div class="nav-actions">
+          <a class="btn" href="/en/index.html" aria-label="English">English</a>
+          <button id="themeToggle" aria-label="切换主题">🌗</button>
+        </div>
+      </nav>
+    </header>
+
+    <main>
+      <section class="hero">
+        <div class="hero-bg" aria-hidden="true"></div>
+        <div class="hero-content">
+          <h1>把复杂技术讲清楚</h1>
+          <p class="subtitle">从 HPC 调度到大模型部署的实战手记</p>
+          <div class="cta">
+            <a class="btn primary" href="posts/sglang-slurm-amd.html">首篇：Slurm 多节点 AMD GPU 下的 SGLang 部署细节 →</a>
+            <a class="btn ghost" href="#posts">浏览所有文章</a>
+          </div>
+          <div class="meta">
+            <span>简洁 · 高效 · 可复用</span>
+          </div>
+        </div>
+      </section>
+
+      <section id="posts" class="post-list">
+        <h2>最新文章</h2>
+        <article class="post-card">
+          <a href="posts/sglang-slurm-amd.html" class="post-link">
+            <div class="post-title">Slurm 系统下多节点、非全满 GPU 的 AMD GPU SGLang 部署细节</div>
+            <div class="post-excerpt">在异构 HPC 集群中，如何用 Slurm 在多节点且 GPU 未完全占满的情况下稳定部署 SGLang（ROCm/AMD）</div>
+            <div class="post-meta">实践 · 指南 · 可复制脚本</div>
+          </a>
+        </article>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <div class="footer-inner">
+        <span>© 2025 个人技术博客</span>
+        <span>·</span>
+        <a href="https://github.com/dereksodo/dereksodo.github.io" target="_blank" rel="noopener">GitHub</a>
+      </div>
+    </footer>
+
+    <script src="assets/script.js"></script>
+  </body>
+</html>
