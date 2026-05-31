@@ -118,6 +118,16 @@ body {
 .post-content code { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, Liberation Mono, monospace; }
 .tip { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 12px; color: var(--muted); }
 
+/* 论文 / PDF 嵌入 */
+.paper-meta { color: var(--muted); font-size: 14px; margin: 4px 0 18px; }
+.paper-actions { display: flex; gap: 12px; flex-wrap: wrap; margin: 16px 0 8px; }
+.pdf-embed {
+  width: 100%; height: 82vh; min-height: 480px;
+  border: 1px solid var(--border); border-radius: 12px;
+  background: var(--bg-soft); margin-top: 8px;
+}
+
 @media (max-width: 480px) {
   .post-content pre { font-size: 14px; }
+  .pdf-embed { height: 70vh; }
 }

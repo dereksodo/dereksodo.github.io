@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>MemArena：面向端侧智能体个人记忆助手的第一人称大规模基准</title>
+    <meta name="description" content="MemArena 是一个第一人称、活动密集的单一世界对话基准，用于评测端侧开放权重模型上的个人记忆助手。" />
+    <link rel="icon" href="../assets/favicon.svg" />
+    <link rel="alternate" hreflang="zh-CN" href="/posts/memarena.html" />
+    <link rel="alternate" hreflang="en" href="/en/posts/memarena.html" />
+    <link rel="stylesheet" href="../assets/style.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <nav class="nav">
+        <div class="brand"><a href="../index.html" style="text-decoration:none;color:inherit">个人技术博客</a></div>
+        <div class="nav-actions">
+          <a class="btn" href="../en/posts/memarena.html" aria-label="English">English</a>
+          <button id="themeToggle" aria-label="切换主题">🌗</button>
+        </div>
+      </nav>
+    </header>
+
+    <main class="container">
+      <article>
+        <header class="post-header">
+          <h1>MemArena：面向端侧智能体个人记忆助手的第一人称大规模基准</h1>
+          <p class="desc">An Ego-Centric Benchmark for On-Device Agentic Personal Memory Assistants at Scale</p>
+        </header>
+        <p class="paper-meta">Jiadong Zhang, Xiaosong Ma · MBZUAI · Preprint</p>
+
+        <section class="post-content">
+          <h2>摘要</h2>
+          <p>边缘部署的个人记忆助手需要在设备本地、使用开放权重模型处理私密的人际对话。然而，现有的记忆基准往往难以同时考察<strong>活动密集的交互</strong>、<strong>第一人称（ego-centric）视角</strong>与<strong>连贯的多会话世界</strong>。MemArena 借助其 <strong>MASim</strong> 智能体模拟器构建了一个单一世界的对话基准来填补这些空白：50 个智能体、历时 15 天（1030 万对话文本 token，每个智能体每天约 2.41 万纯文本第一人称观测 token）。基于这些交互历史，它在召回、推理与可信度三大类、共六个评测维度上同步生成 ground truth。我们评测了五个开放权重 reader，并以 Vanilla 上下文、BM25-RAG、Oracle 检索、Memobase 与 MemSearch 作为记忆后端。</p>
+
+          <h2>三点核心结论</h2>
+          <ul>
+            <li><strong>记忆后端的选择，比扩大 reader 规模更影响内容准确性。</strong>在 Qwen3-0.6B 上，Memobase→MemSearch 带来 +32.5/+19.2 pp 的提升，超过了在 MemSearch 下扩大 reader 规模所得的收益（+10.6/+6.8 pp）。</li>
+            <li><strong>权限感知的访问控制普遍失败。</strong>Oracle 大量泄露隐私信息，而其他后端又过于保守、不敢披露本应披露的内容——两端都难以做到合规。</li>
+            <li><strong>检索延迟只在极小 reader 上才明显。</strong>在 Spark GB10 边缘节点上，记忆检索带来适中且固定的 87/7/48 ms（BM25-RAG/Memobase/MemSearch）开销；对于大多数 reader–后端组合而言，它只占首 token 延迟（TTFT）的一小部分。</li>
+          </ul>
+          <p>代码、MASim 模拟器与 MemArena 基准将在论文录用后公开发布。</p>
+
+          <h2>全文（PDF）</h2>
+          <div class="paper-actions">
+            <a class="btn primary" href="../papers/memarena-preprint.pdf" target="_blank" rel="noopener">📄 在新标签打开 / 下载 PDF（约 2.2 MB，48 页）</a>
+          </div>
+          <iframe class="pdf-embed" src="../papers/memarena-preprint.pdf" title="MemArena 预印本全文 PDF">
+            您的浏览器无法内嵌显示 PDF，请点击上方按钮打开或下载。
+          </iframe>
+        </section>
+      </article>
+    </main>
+
+    <footer class="site-footer">
+      <div class="footer-inner">
+        <span>© 2026 个人技术博客</span>
+        <span>·</span>
+        <a href="https://github.com/dereksodo/dereksodo.github.io" target="_blank" rel="noopener">GitHub</a>
+      </div>
+    </footer>
+
+    <script src="../assets/script.js"></script>
+  </body>
+</html>

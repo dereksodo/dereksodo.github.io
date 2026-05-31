@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en-US">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>MemArena: An Ego-Centric Benchmark for On-Device Agentic Personal Memory Assistants at Scale</title>
+    <meta name="description" content="MemArena is an ego-centric, activity-dense, single-world conversational benchmark for on-device personal memory assistants on open-weight models." />
+    <link rel="icon" href="../../assets/favicon.svg" />
+    <link rel="alternate" hreflang="zh-CN" href="../../posts/memarena.html" />
+    <link rel="alternate" hreflang="en" href="./memarena.html" />
+    <link rel="stylesheet" href="../../assets/style.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <nav class="nav">
+        <div class="brand"><a href="../index.html" style="text-decoration:none;color:inherit">Tech Blog</a></div>
+        <div class="nav-actions">
+          <a class="btn" href="../../posts/memarena.html" aria-label="中文">中文</a>
+          <button id="themeToggle" aria-label="Toggle Theme">🌗</button>
+        </div>
+      </nav>
+    </header>
+
+    <main class="container">
+      <article>
+        <header class="post-header">
+          <h1>MemArena: An Ego-Centric Benchmark for On-Device Agentic Personal Memory Assistants at Scale</h1>
+          <p class="desc">A single-world, activity-dense benchmark for personal memory assistants on open-weight models</p>
+        </header>
+        <p class="paper-meta">Jiadong Zhang, Xiaosong Ma · MBZUAI · Preprint</p>
+
+        <section class="post-content">
+          <h2>Abstract</h2>
+          <p>Edge-deployed personal memory assistants must handle private interpersonal conversations on-device with open-weight models. Yet, existing memory benchmarks often under-test the combination of <strong>activity-dense interaction</strong>, <strong>ego-centric perspective</strong>, and <strong>coherent multi-session worlds</strong>. MemArena fills these gaps with a single-world conversational benchmark built with its <strong>MASim</strong> agent simulator, for 50 agents over 15 days (10.3M dialog-text tokens, 24.1K text-only ego-observed tokens/agent/day). With the interaction history, it co-generates ground truth over six recall, reasoning, and trustworthiness evaluation dimensions. We evaluate five open-weight readers with Vanilla context, BM25-RAG, Oracle retrieval, Memobase, and MemSearch as memory backends.</p>
+
+          <h2>Three results stand out</h2>
+          <ul>
+            <li><strong>Memory-backend choice matters more for content accuracy.</strong> At Qwen3-0.6B, Memobase→MemSearch gains +32.5/+19.2 pp, exceeding MemSearch reader scaling (+10.6/+6.8 pp).</li>
+            <li><strong>Permission-aware access fails universally.</strong> Oracle leaks heavily while other backends are too timid to disclose — neither end lands on the compliant middle.</li>
+            <li><strong>Search latency bites only at very small readers.</strong> On a Spark GB10 edge node, memory-search adds a moderate and fixed 87/7/48 ms (BM25-RAG/Memobase/MemSearch) that composes a small part of TTFT for most reader–backend combinations.</li>
+          </ul>
+          <p>Code, the MASim simulator, and the MemArena benchmark will be released upon acceptance.</p>
+
+          <h2>Full paper (PDF)</h2>
+          <div class="paper-actions">
+            <a class="btn primary" href="../../papers/memarena-preprint.pdf" target="_blank" rel="noopener">📄 Open / download PDF (~2.2 MB, 48 pages)</a>
+          </div>
+          <iframe class="pdf-embed" src="../../papers/memarena-preprint.pdf" title="MemArena preprint full-text PDF">
+            Your browser cannot display the embedded PDF. Please use the button above to open or download it.
+          </iframe>
+        </section>
+      </article>
+    </main>
+
+    <footer class="site-footer">
+      <div class="footer-inner">
+        <span>© 2026 Tech Blog</span>
+        <span>·</span>
+        <a href="https://github.com/dereksodo/dereksodo.github.io" target="_blank" rel="noopener">GitHub</a>
+      </div>
+    </footer>
+
+    <script src="../../assets/script.js"></script>
+  </body>
+</html>
