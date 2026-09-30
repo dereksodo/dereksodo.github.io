@@ -1,75 +1,203 @@
 <!doctype html>
-<html lang="zh-CN">
+<html lang="en">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>个人技术博客 | 封面</title>
-    <meta name="description" content="记录工程与研究的技术细节与实践。" />
-    <meta property="og:title" content="个人技术博客" />
-    <meta property="og:description" content="记录工程与研究的技术细节与实践。" />
-    <meta property="og:type" content="website" />
-    <meta property="og:url" content="/" />
+    <title>Jiadong Zhang</title>
+    <meta name="description" content="Jiadong Zhang, second-year undergraduate in Artificial Intelligence at MBZUAI working on agentic and embodied infrastructure. Publications, blog, and CV." />
+    <meta property="og:title" content="Jiadong Zhang" />
+    <meta property="og:description" content="Agentic and embodied infrastructure research at MBZUAI. Publications, blog, and CV." />
+    <meta property="og:type" content="profile" />
+    <meta property="og:url" content="https://dereksodo.github.io/" />
+    <meta property="og:image" content="https://dereksodo.github.io/front_photo.jpg" />
+    <link rel="canonical" href="https://dereksodo.github.io/" />
     <link rel="icon" href="assets/favicon.svg" />
-    <link rel="alternate" hreflang="zh-CN" href="/index.html" />
-    <link rel="alternate" hreflang="en" href="/en/index.html" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="assets/style.css" />
+    <link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;600&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,700;1,8..60,400&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="assets/home.css" />
+    <script>
+      // Set the theme before first paint (same key and logic as assets/script.js)
+      try {
+        var t = localStorage.getItem('theme');
+        if (!t) t = window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+        document.documentElement.setAttribute('data-theme', t);
+      } catch (e) {}
+    </script>
   </head>
   <body>
-    <header class="site-header">
-      <nav class="nav">
-        <div class="brand">个人技术博客</div>
-        <div class="nav-actions">
-          <a class="btn" href="/en/index.html" aria-label="English">English</a>
-          <button id="themeToggle" aria-label="切换主题">🌗</button>
+    <div class="shell">
+      <main class="profile">
+        <div class="topbar">
+          <nav aria-label="Sections">
+            <a href="#publications">Publications</a>
+            <a href="#blog">Blog</a>
+            <a href="#cv">CV</a>
+          </nav>
+          <button id="themeToggle" class="theme-toggle" type="button" aria-label="Switch between light and dark theme">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M12 3.5a8.5 8.5 0 0 1 0 17z" fill="currentColor"/></svg>
+          </button>
         </div>
-      </nav>
-    </header>
 
-    <main>
-      <section class="hero">
-        <div class="hero-bg" aria-hidden="true"></div>
-        <div class="hero-content">
-          <h1>把复杂技术讲清楚</h1>
-          <p class="subtitle">从 HPC 调度到大模型部署的实战手记</p>
-          <div class="cta">
-            <a class="btn primary" href="posts/sglang-slurm-amd.html">首篇：Slurm 多节点 AMD GPU 下的 SGLang 部署细节 →</a>
-            <a class="btn ghost" href="#posts">浏览所有文章</a>
+        <section class="about" aria-labelledby="name">
+          <div class="intro-head">
+            <img class="portrait" src="assets/portrait.jpg" width="480" height="600" alt="Portrait of Jiadong Zhang" />
+            <div>
+              <h1 id="name">Jiadong Zhang</h1>
+              <p class="role">Agentic and embodied infrastructure, MBZUAI</p>
+              <ul class="contact-links">
+                <li><a href="mailto:dereksodo@gmail.com">dereksodo@gmail.com</a></li>
+                <li><a href="https://github.com/dereksodo">GitHub</a></li>
+                <li><a href="cv.pdf">CV (PDF)</a></li>
+              </ul>
+            </div>
           </div>
-          <div class="meta">
-            <span>简洁 · 高效 · 可复用</span>
-          </div>
+
+          <p>I'm a second-year undergraduate in Artificial Intelligence at MBZUAI in Abu Dhabi. I work on agentic and embodied infrastructure: the systems that let AI agents, and the models behind them, run fast and reliably on real hardware, from GPU clusters down to edge devices.</p>
+          <p>With Prof. Xiaosong Ma, I built <a href="#publications">MemArena</a>, a benchmark for on-device personal memory assistants, accepted at NeurIPS 2026.</p>
+          <p>I also build products. I'm co-founder and CTO of <a href="https://memai.org/">MemAI</a>, where we build interactive AI tutoring, and founder of <a href="https://7d24h.work/">7D24H</a>, a desktop agent that turns tender documents and research ideas into finished bids and papers.</p>
+        </section>
+
+        <section id="publications" aria-labelledby="publications-title">
+          <h2 id="publications-title">Publications</h2>
+          <article class="pub">
+            <h3><a href="https://arxiv.org/abs/2608.02613">MemArena: An Ego-Centric Benchmark for On-Device Agentic Personal Memory Assistants at Scale</a></h3>
+            <p class="authors"><strong>Jiadong Zhang</strong>, Xiaosong Ma</p>
+            <p class="venue">NeurIPS 2026, Datasets and Benchmarks Track</p>
+            <p class="summary">A single-world conversational benchmark generated by the MASim multi-agent simulator: 50 agents over 15 days, 10.3M tokens, and six evaluation dimensions, used to test memory backends and open-weight models on-device.</p>
+            <p class="pub-links">
+              <a href="https://arxiv.org/abs/2608.02613">arXiv</a>
+              <a href="papers/memarena-preprint.pdf">PDF</a>
+              <a href="en/posts/memarena.html">Blog post</a>
+            </p>
+          </article>
+        </section>
+
+        <section id="blog" aria-labelledby="blog-title">
+          <h2 id="blog-title">Blog</h2>
+          <ul class="posts">
+            <li>
+              <time datetime="2026-06">Jun 2026</time>
+              <div>
+                <a class="post-title" href="en/posts/memarena.html">MemArena: an ego-centric benchmark for on-device personal memory assistants</a>
+                <p>What the benchmark measures, the three results that stand out, and the full preprint.</p>
+                <a class="alt-lang" href="posts/memarena.html" hreflang="zh-CN" lang="zh-CN">中文版</a>
+              </div>
+            </li>
+            <li>
+              <time datetime="2025-11">Nov 2025</time>
+              <div>
+                <a class="post-title" href="en/posts/sglang-slurm-amd.html">Deploying SGLang on Slurm across multi-node AMD GPUs</a>
+                <p>Pinning partial GPU allocations per node, fixing multi-node server config, and measuring NUMA effects on MI210.</p>
+                <a class="alt-lang" href="posts/sglang-slurm-amd.html" hreflang="zh-CN" lang="zh-CN">中文版</a>
+              </div>
+            </li>
+          </ul>
+        </section>
+
+        <footer class="page-foot">
+          © 2026 Jiadong Zhang. <a href="https://github.com/dereksodo/dereksodo.github.io">Site source</a>
+        </footer>
+      </main>
+
+      <aside id="cv" class="cv" aria-labelledby="cv-title">
+        <div class="cv-bar">
+          <h2 id="cv-title">Curriculum vitae</h2>
+          <a href="cv.pdf" download="Jiadong_Zhang_CV.pdf">Download PDF</a>
         </div>
-      </section>
 
-      <section id="posts" class="post-list">
-        <h2>最新文章</h2>
-        <article class="post-card">
-          <a href="posts/memarena.html" class="post-link">
-            <div class="post-title">MemArena：面向端侧智能体个人记忆助手的第一人称大规模基准</div>
-            <div class="post-excerpt">第一人称、活动密集的单一世界对话基准：50 个智能体、15 天、六个评测维度，附预印本全文。</div>
-            <div class="post-meta">论文 · 基准 · 预印本</div>
-          </a>
-        </article>
-        <article class="post-card">
-          <a href="posts/sglang-slurm-amd.html" class="post-link">
-            <div class="post-title">Slurm 系统下多节点、非全满 GPU 的 AMD GPU SGLang 部署细节</div>
-            <div class="post-excerpt">在异构 HPC 集群中，如何用 Slurm 在多节点且 GPU 未完全占满的情况下稳定部署 SGLang（ROCm/AMD）</div>
-            <div class="post-meta">实践 · 指南 · 可复制脚本</div>
-          </a>
-        </article>
-      </section>
-    </main>
+        <div class="cv-paper" tabindex="0" aria-label="CV">
+          <header>
+            <h1>Jiadong Zhang</h1>
+            <div class="contact">
+              <span>Abu Dhabi, UAE</span>
+              <span><a href="mailto:dereksodo@gmail.com">dereksodo@gmail.com</a></span>
+              <span><a href="https://github.com/dereksodo">github.com/dereksodo</a></span>
+            </div>
+          </header>
 
-    <footer class="site-footer">
-      <div class="footer-inner">
-        <span>© 2026 个人技术博客</span>
-        <span>·</span>
-        <a href="https://github.com/dereksodo/dereksodo.github.io" target="_blank" rel="noopener">GitHub</a>
-      </div>
-    </footer>
+          <section>
+            <h3>Research Experience</h3>
+            <article class="entry">
+              <div class="entry-heading">
+                <a class="title-link" href="https://arxiv.org/abs/2608.02613">MemArena: An Ego-Centric Benchmark for On-Device Agentic Personal Memory Assistants at Scale</a>
+                <span class="entry-date">May 2026</span>
+              </div>
+              <div class="entry-subheading">
+                <span class="entry-role">Jiadong Zhang, Xiaosong Ma | Accepted at <strong>NeurIPS 2026</strong> Datasets &amp; Benchmarks Track; arXiv 2608.02613</span>
+                <span class="entry-place">MBZUAI</span>
+              </div>
+              <ul>
+                <li>Designed and built MASim, a multi-agent simulator where persona-driven agents in a shared social world hold person-person and person-agent dialogs, with day-batched synchronization for temporal consistency.</li>
+                <li>Used MASim to generate a 10.3M-token benchmark (50 agents, 15 days), deriving ground truth for six dimensions from simulator state; evaluated four memory backends with five open-weight models on-device.</li>
+              </ul>
+            </article>
+          </section>
+
+          <section>
+            <h3>Entrepreneurial Experience</h3>
+            <article class="entry">
+              <div class="entry-heading">
+                <a class="title-link" href="https://memai.org/">MemAI</a>
+                <span class="entry-place">Abu Dhabi, UAE</span>
+              </div>
+              <div class="entry-subheading">
+                <span class="entry-role">Co-Founder &amp; Chief Technology Officer</span>
+                <span class="entry-date">Feb 2026-Present</span>
+              </div>
+              <div class="entry-url"><a href="https://memai.org/">https://memai.org/</a></div>
+              <ul>
+                <li>Built the world's first AI tutoring product centered on interactive learning, combining an innovative editable canvas with real-time voice technology to deliver adaptive, two-way lessons across 13 subjects and four difficulty levels.</li>
+                <li>Architected a governed education-AI platform using curriculum-grounded RAG, policy gateways, audit logs, privacy isolation, and a regulated agent marketplace.</li>
+              </ul>
+            </article>
+            <article class="entry">
+              <div class="entry-heading">
+                <a class="title-link" href="https://7d24h.work/">7D24H</a>
+                <span class="entry-place">Abu Dhabi, UAE</span>
+              </div>
+              <div class="entry-subheading">
+                <span class="entry-role">Founder</span>
+                <span class="entry-date">Jan 2026-Present</span>
+              </div>
+              <div class="entry-url"><a href="https://7d24h.work/">https://7d24h.work/</a></div>
+              <ul>
+                <li>Built a desktop agent that takes bids and academic papers from source documents to finished deliverables: tender parsing, disqualification-risk review, reuse of company materials, journal-template writing, research figures, and PDF export.</li>
+                <li>Parses tender documents of up to 2,000 pages and checks five categories of disqualification risk, keeping all project files local on the user's machine.</li>
+              </ul>
+            </article>
+          </section>
+
+          <section>
+            <h3>Education</h3>
+            <article class="entry">
+              <div class="entry-heading">
+                <span class="entry-title">Mohamed bin Zayed University of Artificial Intelligence (MBZUAI)</span>
+                <span class="entry-date">Aug 2025-Expected May 2029</span>
+              </div>
+              <div class="entry-subheading">
+                <span class="entry-role">Bachelor of Science in Artificial Intelligence</span>
+                <span class="entry-place">Abu Dhabi, UAE</span>
+              </div>
+              <ul>
+                <li>First-year GPA: <strong>3.93/4.00</strong>; named to the Dean's List in the first semester.</li>
+              </ul>
+            </article>
+          </section>
+
+          <section>
+            <h3>Technical Skills</h3>
+            <div class="skills">
+              <p class="skill-line"><strong>Programming &amp; Frameworks:</strong> Python, C, CUDA; PyTorch</p>
+              <p class="skill-line"><strong>AI Infrastructure:</strong> SGLang, vLLM; CUDA Kernel Development; CUDA Profiling; Nsight Systems; Heterogeneous Resource Scheduling</p>
+              <p class="skill-line"><strong>AI &amp; Agents:</strong> Agentic Workflows; Multi-agent Simulation; RAG &amp; Memory Systems</p>
+              <p class="skill-line"><strong>Research &amp; Evaluation:</strong> Benchmark Design; LLM Evaluation; Experimental Design; Performance Profiling</p>
+              <p class="skill-line"><strong>Engineering Tools:</strong> Agent Harness Engineering; Codex and Claude Code</p>
+            </div>
+          </section>
+        </div>
+      </aside>
+    </div>
 
     <script src="assets/script.js"></script>
   </body>
