@@ -54,12 +54,22 @@
           </div>
 
           <p>I'm a second-year undergraduate in Artificial Intelligence at MBZUAI in Abu Dhabi. I work on agentic and embodied infrastructure: the systems that let AI agents, and the models behind them, run fast and reliably on real hardware, from GPU clusters down to edge devices.</p>
-          <p>With Prof. Xiaosong Ma, I built <a href="#publications">MemArena</a>, a benchmark for on-device personal memory assistants, accepted at NeurIPS 2026.</p>
+          <p>With Prof. Xiaosong Ma, I built <a href="#publications">MemArena</a>, a benchmark for on-device personal memory assistants, accepted at NeurIPS 2026, and <a href="#publications">Ripple</a>, a deadline-aware scheduler that lets robots share one unified-memory edge device between time-critical CPU tasks and LLM/VLM inference.</p>
           <p>I also build products. I'm co-founder and CTO of <a href="https://memai.org/">MemAI</a>, where we build interactive AI tutoring, and founder of <a href="https://7d24h.work/">7D24H</a>, a desktop agent that turns tender documents and research ideas into finished bids and papers.</p>
         </section>
 
         <section id="publications" aria-labelledby="publications-title">
           <h2 id="publications-title">Publications</h2>
+          <article class="pub">
+            <h3><a href="https://arxiv.org/abs/2611.01067">Ripple: Deadline-Aware CPU-GPU Sharing for Embodied Inference</a></h3>
+            <p class="authors"><strong>Jiadong Zhang</strong>, Xiaosong Ma</p>
+            <p class="venue">arXiv preprint, 2026</p>
+            <p class="summary">A CPU-GPU co-scheduler for unified-memory edge devices that turns each robotic CPU job's deadline slack into a GPU-byte budget and runs LLM/VLM inference in pausable, layer-based units. On DGX Spark it is the only evaluated approach that consistently meets CPU and VLM deadlines while keeping best-effort LLM throughput.</p>
+            <p class="pub-links">
+              <a href="https://arxiv.org/abs/2611.01067">arXiv</a>
+              <a href="https://arxiv.org/pdf/2611.01067">PDF</a>
+            </p>
+          </article>
           <article class="pub">
             <h3><a href="https://arxiv.org/abs/2608.02613">MemArena: An Ego-Centric Benchmark for On-Device Agentic Personal Memory Assistants at Scale</a></h3>
             <p class="authors"><strong>Jiadong Zhang</strong>, Xiaosong Ma</p>
@@ -118,6 +128,20 @@
 
           <section>
             <h3>Research Experience</h3>
+            <article class="entry">
+              <div class="entry-heading">
+                <a class="title-link" href="https://arxiv.org/abs/2611.01067">Ripple: Deadline-Aware CPU-GPU Sharing for Embodied Inference</a>
+                <span class="entry-date">Oct 2026</span>
+              </div>
+              <div class="entry-subheading">
+                <span class="entry-role">Jiadong Zhang, Xiaosong Ma | arXiv 2611.01067</span>
+                <span class="entry-place">MBZUAI</span>
+              </div>
+              <ul>
+                <li>Designed Ripple, a CPU-GPU co-scheduler for unified-memory edge devices (DGX Spark) that combines model-derived GPU memory volumes with CPU completion feedback to regulate interference without bandwidth counters.</li>
+                <li>Split LLM/VLM inference into pausable layer-based units admitted within per-job GPU-byte budgets, with deadline-aware pacing and SM footprint narrowing; implemented via SGLang engine hooks and a central scheduler.</li>
+              </ul>
+            </article>
             <article class="entry">
               <div class="entry-heading">
                 <a class="title-link" href="https://arxiv.org/abs/2608.02613">MemArena: An Ego-Centric Benchmark for On-Device Agentic Personal Memory Assistants at Scale</a>
